@@ -138,6 +138,15 @@ class Expectation implements ExpectationInterface
     protected $_passthru = false;
 
     /**
+     * Flag indicating that the return value should be from the original class method
+     * and the value also be mocked as a proxy partial. Also activates the _passthru
+     * flag to ensure return queue predefines are not referenced
+     *
+     * @var bool
+     */
+    protected $_mockOriginalReturn = false;
+
+    /**
      * Constructor
      *
      * @param \Mockery\MockInterface $mock
@@ -172,7 +181,13 @@ class Expectation implements ExpectationInterface
     {
         $this->validateOrder();
         $this->_actualCount++;
-        if (true === $this->_passthru) {
+
+        if (true === $this->_mockOriginalReturn || true === $this->_passthru) {
+//            $origReturn = $this->_mock->mockery_callSubjectMethod($this->_name, $args);
+//var_dump($origReturn); die;
+//            return \Mockery::mock($origReturn);
+//        }
+//        elseif (true === $this->_passthru) {
             return $this->_mock->mockery_callSubjectMethod($this->_name, $args);
         }
         $return = $this->_getReturnValue($args);
@@ -737,6 +752,30 @@ class Expectation implements ExpectationInterface
         }
         $this->_passthru = true;
         return $this;
+    }
+
+    /**
+     * Flag this expectation as calling the original class method with the
+     * any provided arguments instead of using a return value queue but also
+     * to dynamically mock the original class' return value as a proxied partial mock
+     *
+     * @return self
+     */
+    public function mockOriginalReturn()
+    {
+        if ($this->_mock instanceof Mock) {
+            throw new Exception(
+                'Mock Objects not created from a loaded/existing class are '
+                . 'incapable of passing method calls through to a parent class'
+            );
+        }
+        $this->_passthru = true;
+        $this->_mockOriginalReturn = true;
+        return $this;
+    }
+
+    public function getMockOriginalReturn() {
+        return $this->_mockOriginalReturn;
     }
 
     /**

@@ -731,7 +731,21 @@ class Mock implements MockInterface
             return call_user_func_array("parent::$method", $args);
         }
 
-        if (isset($this->_mockery_expectations[$method])
+        /** @var ExpectationDirector $expectation */
+        $expectationDirector = @$this->_mockery_expectations[$method];
+$mockOriginalFlag = false;
+if ($expectationDirector) {
+
+    $expectations = $expectationDirector->getExpectations();
+    foreach ($expectations as $anExpectation) {
+        if ($anExpectation->getMockOriginalReturn()) {
+            $mockOriginalFlag = true;
+        }
+    }
+}
+
+        if ($expectationDirector
+        && !$mockOriginalFlag # additional check to allow fall-through to proxied method deferment
         && !$this->_mockery_disableExpectationMatching) {
             $handler = $this->_mockery_expectations[$method];
 
@@ -745,6 +759,20 @@ class Mock implements MockInterface
         }
 
         if (!is_null($this->_mockery_partial) && method_exists($this->_mockery_partial, $method)) {
+
+            if ($mockOriginalFlag) {
+                // cache the result based on args as this has bearing on the original's returned object (messy as but whatever)
+                static $cachedDynamicMocks = [];
+                $cachedMock = @$cachedDynamicMocks[md5(serialize($args))];
+                if ($cachedMock) {
+                    return $cachedMock;
+                }
+                $proxiedObjectReturn = call_user_func_array(array($this->_mockery_partial, $method), $args);
+                $mockedReturn = \Mockery::mock($proxiedObjectReturn);
+                $cachedDynamicMocks[md5(serialize($args))] = $mockedReturn;
+                return $mockedReturn;
+            }
+
             return call_user_func_array(array($this->_mockery_partial, $method), $args);
         } elseif ($this->_mockery_deferMissing && is_callable("parent::$method")) {
             return call_user_func_array("parent::$method", $args);
